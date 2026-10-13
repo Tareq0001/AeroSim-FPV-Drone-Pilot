@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="app-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroSim FPV | 6-DoF Drone Flight Dynamics & Pilot Certification Academy</title>
+    <!-- Font Awesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #06080d;
+            --bg-panel: rgba(11, 15, 25, 0.88);
+            --border-glow: #1a2234;
+            --border-accent: #0284c7;
+            --fpv-cyan: #06b6d4;
+            --fpv-green: #10b981;
+            --fpv-amber: #f59e0b;
+            --fpv-red: #ef4444;
+            --fpv-purple: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-ui: 'Tajawal', system-ui, sans-serif;
+        }
+
+        html[dir="ltr"] {
+            --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.08) 0%, transparent 45%);
+        }
+
+        /* Top Header */
+        header {
+            height: 64px;
+            background: rgba(11, 15, 25, 0.92);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border-glow);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #0284c7, #10b981);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.45);
+        }
+
+        .brand-text h1 {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #38bdf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-text p {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .header-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: var(--fpv-green);
+            padding: 4px 14px;
+            border-radius: 9999px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-ui {
+            background: rgba(26, 34, 52, 0.7);
+            border: 1px solid var(--border-glow);
+            color: var(--text-main);
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-ui:hover {
+            border-color: var(--fpv-cyan);
+            background: #1f293d;
+            color: var(--fpv-cyan);
+        }
+
+        .btn-arm {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: var(--fpv-green);
+            font-weight: 700;
+        }
+
+        .btn-arm.armed {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: var(--fpv-red);
+        }
+
+        /* Main Workspace Layout */
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr 340px;
+            gap: 16px;
+            padding: 16px 20px;
+            flex: 1;
+            min-height: calc(100vh - 64px);
+        }
+
+        @media (max-width: 1280px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Panel Container */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            background: rgba(11, 15, 25, 0.85);
+            border-bottom: 1px solid var(--border-glow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Flight Mode Selector */
+        .flight-modes {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border-glow);
+        }
+
+        .mode-btn {
+            padding: 8px 4px;
+            text-align: center;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .mode-btn.active {
+            background: #1e293b;
+            color: var(--fpv-cyan);
+            border-color: var(--fpv-cyan);
+            font-weight: 700;
+        }
+
+        /* Controls */
+        .ctrl-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ctrl-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+        }
+
+        .ctrl-value {
+            color: var(--fpv-cyan);
+            font-weight: 700;
+        }
+
+        .slider-range {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #1e2438;
+            outline: none;
+        }
+
+        .slider-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--fpv-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+            border: 2px solid #fff;
+        }
+
+        /* 3D Viewport Container */
+        .viewport-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+        }
+
+        .flight-canvas-card {
+            background: #020408;
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 480px;
+        }
+
+        #flightCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Avionics OSD Overlay */
+        .osd-hud {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            color: #22c55e;
+            text-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+        }
+
+        .osd-top-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .osd-mid-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .osd-bottom-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .osd-ladder {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        /* Virtual Gimbals Container */
+        .gimbals-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            height: 190px;
+        }
+
+        .gimbal-box {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-glow);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .gimbal-label {
+            font-size: 11px;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .stick-pad {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px dashed #334155;
+            position: relative;
+            cursor: crosshair;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+
+        .stick-knob {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0284c7, #06b6d4);
+            border: 2px solid #fff;
+            position: absolute;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
+            pointer-events: none;
+            transition: transform 0.05s ease-out;
+        }
+
+        /* Metrics & Failures */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .metric-card {
+            background: rgba(26, 34, 52, 0.4);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .metric-val {
+            font-size: 15px;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Academy Missions List */
+        .mission-item {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mission-item:hover, .mission-item.active {
+            border-color: var(--fpv-cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .mission-info h4 {
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .mission-info p {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="brand-section">
+            <div class="brand-logo">
+                <i class="fa-solid fa-drone"></i>
+            </div>
+            <div class="brand-text">
+                <h1 data-i18n="appTitle">AEROSIM FPV | 6-DoF Drone Flight Dynamics Simulator</h1>
+                <p data-i18n="appSubtitle">Aerodynamic Flight Simulator & Professional UAV Pilot Academy</p>
+            </div>
+        </div>
+
+        <div class="header-status-badge" id="armBadge">
+            <i class="fa-solid fa-power-off"></i>
+            <span id="armText">DISARMED (MOTORS IDLE)</span>
+        </div>
+
+        <div class="header-actions">
+            <button class="btn-ui btn-arm" id="armToggleBtn" onclick="toggleArm()">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span id="armBtnText" data-i18n="btnArm">ARM MOTORS</span>
+            </button>
+            <button class="btn-ui" onclick="resetDrone()">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span data-i18n="btnReset">RESET POSITION</span>
+            </button>
+            <button class="btn-ui" id="langToggleBtn" onclick="toggleLanguage()">
+                <i class="fa-solid fa-globe"></i>
+                <span id="langText">English</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+        
+        <!-- Left Panel: Aerodynamics & Hardware Tuning -->
+        <aside class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    <span data-i18n="configTitle">Drone Specs & Aerodynamics</span>
+                </div>
+                <span style="font-size: 10px; color: var(--fpv-cyan); font-family: var(--font-mono);">5-INCH QUAD-X</span>
+            </div>
+
+            <div class="panel-body">
+                <!-- Flight Mode Selector -->
+                <div class="ctrl-group">
+                    <span class="ctrl-header" data-i18n="modeSelect">Flight Controller Mode</span>
+                    <div class="flight-modes">
+                        <div class="mode-btn active" id="modeAcro" onclick="setFlightMode('acro')">ACRO (RATE)</div>
+                        <div class="mode-btn" id="modeAngle" onclick="setFlightMode('angle')">ANGLE (STAB)</div>
+                        <div class="mode-btn" id="modeGps" onclick="setFlightMode('gps')">GPS HOLD</div>
+                    </div>
+                </div>
+
+                <!-- Quadrotor Frame Weight (grams) -->
+                <div class="ctrl-group">
+                    <div class="ctrl-header">
+                        <span data-i18n="allUpWeight">All-Up-Weight AUW (Mass)</span>
+                        <span class="ctrl-value" id="valMass">680 g</span>
+                    </div>
+                    <input type="range" class="slider-range" id="sliderMass" min="300" max="1500" step="20" value="680">
+                </div>
+
+                <!-- Motor KV & Prop Pitch -->
+                <div class="ctrl-group">
+                    <div class="ctrl-header">
+                        <span data-i18n="motorThrust">Max Total Thrust (4x Motors)</span>
+                        <span class="ctrl-value" id="valThrust">3.20 kg (4.7:1 TWR)</span>
+                    </div>
+                    <input type="range" class="slider-range" id="sliderThrust" min="1.5" max="6.0" step="0.1" value="3.2">
+                </div>
+
+                <!-- Wind Speed & Turbulence (Dryden Model) -->
+                <div class="ctrl-group">
+                    <div class="ctrl-header">
+                        <span data-i18n="windGust">Environmental Wind & Gusts</span>
+                        <span class="ctrl-value" id="valWind">12.0 km/h</span>
+                    </div>
+                    <input type="range" class="slider-range" id="sliderWind" min="0" max="60" step="2" value="12">
+                </div>
+
+                <!-- Drag Coefficient Cd -->
+                <div class="ctrl-group">
+                    <div class="ctrl-header">
+                        <span data-i18n="dragCoeff">Aerodynamic Drag ($C_D$)</span>
+                        <span class="ctrl-value" id="valDrag">0.45</span>
+                    </div>
+                    <input type="range" class="slider-range" id="sliderDrag" min="0.1" max="1.2" step="0.05" value="0.45">
+                </div>
+
+                <!-- Controls Guide -->
+                <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 8px; padding: 12px; font-size: 11px; line-height: 1.6;">
+                    <div style="font-weight: 700; color: #38bdf8; margin-bottom: 4px;" data-i18n="keysTitle">PILOT INPUT CONTROLS</div>
+                    <div data-i18n="keysDesc">
+                        • <strong>W/S:</strong> Throttle (الخانق / قوة الرفع)<br>
+                        • <strong>A/D:</strong> Yaw (الانعراج يميناً ويساراً)<br>
+                        • <strong>Arrows:</strong> Pitch & Roll (الانحدار والتمايل)<br>
+                        • <strong>Gamepad:</strong> USB Controller auto-detected.
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center: 3D Flight Viewport & Virtual Gimbals -->
+        <section class="viewport-container">
+            <div class="flight-canvas-card">
+                <canvas id="flightCanvas"></canvas>
+                
+                <!-- OSD Overlay -->
+                <div class="osd-hud">
+                    <div class="osd-top-row">
+                        <div><i class="fa-solid fa-satellite-dish"></i> GPS SATS: <span id="osdSats">14</span></div>
+                        <div id="osdModeLabel">MODE: ACRO</div>
+                        <div><i class="fa-solid fa-battery-three-quarters"></i> 4S: <span id="osdVolt">15.8V</span> (<span id="osdMah">420mAh</span>)</div>
+                    </div>
+
+                    <div class="osd-mid-row">
+                        <div class="osd-ladder">
+                            <div>SPD: <span id="osdSpeed">45</span> km/h</div>
+                            <div>ALT: <span id="osdAlt">18.4</span> m</div>
+                            <div>VARIO: <span id="osdVario">+1.2</span> m/s</div>
+                        </div>
+
+                        <!-- Crosshair Artifical Horizon -->
+                        <div style="font-size: 24px; opacity: 0.8;">[ + ]</div>
+
+                        <div class="osd-ladder" style="text-align: right;">
+                            <div>RSSI: <span id="osdRssi">-64</span> dBm</div>
+                            <div>PITCH: <span id="osdPitch">12°</span></div>
+                            <div>ROLL: <span id="osdRoll">-4°</span></div>
+                        </div>
+                    </div>
+
+                    <div class="osd-bottom-row">
+                        <div>THROTTLE: <span id="osdThr">42%</span></div>
+                        <div id="osdGateLap" style="color: #f59e0b;">GATE: 2/6 (LAP 1 - 00:14.2)</div>
+                        <div>ARM: <span id="osdArmState" style="color: #ef4444;">DISARMED</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Virtual Dual Gimbals (Mode 2) -->
+            <div class="gimbals-row">
+                <!-- Left Stick: Throttle (Y) + Yaw (X) -->
+                <div class="gimbal-box">
+                    <div class="gimbal-label" data-i18n="leftStick">LEFT STICK (MODE 2: THROTTLE / YAW)</div>
+                    <div class="stick-pad" id="stickLeft">
+                        <div class="stick-knob" id="knobLeft"></div>
+                    </div>
+                </div>
+
+                <!-- Right Stick: Pitch (Y) + Roll (X) -->
+                <div class="gimbal-box">
+                    <div class="gimbal-label" data-i18n="rightStick">RIGHT STICK (MODE 2: PITCH / ROLL)</div>
+                    <div class="stick-pad" id="stickRight">
+                        <div class="stick-knob" id="knobRight"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel: Pilot Certification Academy -->
+        <aside class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fa-solid fa-graduation-cap text-emerald-400"></i>
+                    <span data-i18n="academyTitle">Pilot Certification Academy</span>
+                </div>
+                <span style="font-size: 10px; color: var(--fpv-green); font-family: var(--font-mono);">STAGE 1</span>
+            </div>
+
+            <div class="panel-body">
+                <!-- Telemetry Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label" data-i18n="gForce">G-Force Loading</span>
+                        <span class="metric-val" id="valGForce" style="color: #38bdf8;">1.02 G</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label" data-i18n="flightTime">Flight Duration</span>
+                        <span class="metric-val" id="valFlightTime" style="color: #10b981;">02:14</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label" data-i18n="maxVelocity">Max Velocity</span>
+                        <span class="metric-val" id="valMaxVel" style="color: #f59e0b;">112 km/h</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label" data-i18n="pilotScore">Pilot Precision Score</span>
+                        <span class="metric-val" id="valScore" style="color: #a855f7;">94 / 100</span>
+                    </div>
+                </div>
+
+                <!-- Academy Flight Challenges -->
+                <div class="panel-title" style="margin-top: 6px;">
+                    <i class="fa-solid fa-flag-checkered text-amber-400"></i>
+                    <span data-i18n="challengesTitle">Flight Training Modules</span>
+                </div>
+
+                <div class="mission-item active" onclick="selectCourse(0)">
+                    <div class="mission-info">
+                        <h4 data-i18n="c1Title">1. Hover Stability Challenge</h4>
+                        <p data-i18n="c1Desc">Maintain altitude (2m ± 0.5m) and position in 1m radius for 20s.</p>
+                    </div>
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                </div>
+
+                <div class="mission-item" onclick="selectCourse(1)">
+                    <div class="mission-info">
+                        <h4 data-i18n="c2Title">2. 3D Pylon Gate Slalom Course</h4>
+                        <p data-i18n="c2Desc">Fly through 6 neon gates in sequence under 45 seconds.</p>
+                    </div>
+                    <i class="fa-solid fa-stopwatch text-amber-400"></i>
+                </div>
+
+                <div class="mission-item" onclick="selectCourse(2)">
+                    <div class="mission-info">
+                        <h4 data-i18n="c3Title">3. Motor-Out Emergency Recovery</h4>
+                        <p data-i18n="c3Desc">Rotor #3 disabled mid-air; execute controlled autorotation landing.</p>
+                    </div>
+                    <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+                </div>
+
+                <div class="mission-item" onclick="selectCourse(3)">
+                    <div class="mission-info">
+                        <h4 data-i18n="c4Title">4. Mountain Wind Shear Survival</h4>
+                        <p data-i18n="c4Desc">Navigate high-altitude turbulence with gusts up to 45 km/h.</p>
+                    </div>
+                    <i class="fa-solid fa-wind text-cyan-400"></i>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // Localization Dictionary
+        const I18N = {
+            ar: {
+                appTitle: "AEROSIM FPV | محاكي ديناميكا طيران الدرونز 6-DoF",
+                appSubtitle: "محاكي الطيران الديناميكي وأكاديمية تدريب واختبار طياري الدرونز",
+                btnArm: "تفعيل المحركات (ARM)",
+                btnReset: "إعادة ضبط الموقع",
+                configTitle: "مواصفات الدرون والديناميكا الهوائية",
+                modeSelect: "وضع وحدة التحكم بالطيران",
+                allUpWeight: "الوزن الإجمالي للدرون (AUW)",
+                motorThrust: "إجمالي قوة دفع المحركات",
+                windGust: "الرياح والعواصف المحيطة (Dryden)",
+                dragCoeff: "معامل السحب الديناميكي الهوائي (Cd)",
+                keysTitle: "أزرار التحكم بالطيار",
+                keysDesc: "• W/S: الخانق وقوة الرفع (Throttle)\n• A/D: الانعراج يميناً ويساراً (Yaw)\n• الأسهم: الانحدار والتمايل (Pitch / Roll)\n• ذراع التحكم: يدعم أجهزة USB تلقائياً.",
+                leftStick: "عصا التحكم اليسرى (الخانق / الانعراج - Mode 2)",
+                rightStick: "عصا التحكم اليمنى (الانحدار / التمايل - Mode 2)",
+                academyTitle: "أكاديمية تدريب وتأهيل الطيارين",
+                gForce: "قوى الجاذبية والتسارع (G)",
+                flightTime: "مدة الطيران",
+                maxVelocity: "أقصى سرعة مسجلة",
+                pilotScore: "مقياس دقة الطيار",
+                challengesTitle: "المسارات التدريبية المعتمدة",
+                c1Title: "1. تحدي الثبات والتحليق الموضعي",
+                c1Desc: "الحفاظ على الارتفاع والموقع داخل نطاق 1 متر لمدة 20 ثانية.",
+                c2Title: "2. مسار بوابات السباق ثلاثية الأبعاد",
+                c2Desc: "اجتياز 6 بوابات متتالية بدقة عالية في أقل من 45 ثانية.",
+                c3Title: "3. سيناريو تعطل المحرك المفاجئ",
+                c3Desc: "تعطل المحرك رقم 3 أثناء الطيران والهبوط الاضطراري الآمن.",
+                c4Title: "4. مقاومة الرياح الجبلية العاتية",
+                c4Desc: "التحليق في أجواء متقلبة مع رياح وهبات تصل إلى 45 كم/ساعة."
+            },
+            en: {
+                appTitle: "AEROSIM FPV | 6-DoF Drone Flight Dynamics Simulator",
+                appSubtitle: "Aerodynamic Flight Simulator & Professional UAV Pilot Academy",
+                btnArm: "ARM MOTORS",
+                btnReset: "RESET POSITION",
+                configTitle: "Drone Specs & Aerodynamics",
+                modeSelect: "Flight Controller Mode",
+                allUpWeight: "All-Up-Weight AUW (Mass)",
+                motorThrust: "Max Total Thrust (4x Motors)",
+                windGust: "Environmental Wind & Gusts",
+                dragCoeff: "Aerodynamic Drag (Cd)",
+                keysTitle: "PILOT INPUT CONTROLS",
+                keysDesc: "• W/S: Throttle\n• A/D: Yaw (Left/Right)\n• Arrows: Pitch & Roll\n• Gamepad: USB controller auto-detected.",
+                leftStick: "LEFT STICK (MODE 2: THROTTLE / YAW)",
+                rightStick: "RIGHT STICK (MODE 2: PITCH / ROLL)",
+                academyTitle: "Pilot Certification Academy",
+                gForce: "G-Force Loading",
+                flightTime: "Flight Duration",
+                maxVelocity: "Max Velocity",
+                pilotScore: "Pilot Precision Score",
+                challengesTitle: "Flight Training Modules",
+                c1Title: "1. Hover Stability Challenge",
+                c1Desc: "Maintain altitude (2m ± 0.5m) and position in 1m radius for 20s.",
+                c2Title: "2. 3D Pylon Gate Slalom Course",
+                c2Desc: "Fly through 6 neon gates in sequence under 45 seconds.",
+                c3Title: "3. Motor-Out Emergency Recovery",
+                c3Desc: "Rotor #3 disabled mid-air; execute controlled autorotation landing.",
+                c4Title: "4. Mountain Wind Shear Survival",
+                c4Desc: "Navigate high-altitude turbulence with gusts up to 45 km/h."
+            }
+        };
+
+        let currentLang = 'ar';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            document.getElementById('app-root').dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            document.getElementById('app-root').lang = currentLang;
+            document.getElementById('langText').textContent = currentLang === 'ar' ? 'English' : 'العربية';
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (I18N[currentLang][key]) {
+                    el.textContent = I18N[currentLang][key];
+                }
+            });
+        }
+
+        // 6-DoF Quadrotor State
+        const drone = {
+            x: 0, y: 1.5, z: 0,       // Position (m) [Y is UP]
+            vx: 0, vy: 0, vz: 0,     // Velocity (m/s)
+            roll: 0, pitch: 0, yaw: 0,// Euler Angles (radians)
+            p: 0, q: 0, r: 0,         // Angular velocities (rad/s)
+            throttle: 0.0,            // 0.0 to 1.0
+            mass: 0.68,               // kg
+            maxThrust: 3.20 * 9.81,   // Newtons
+            cd: 0.45,
+            wind: 3.3,                // m/s
+            armed: false,
+            mode: 'acro',             // 'acro', 'angle', 'gps'
+            time: 0,
+            startTime: Date.now(),
+            maxSpeed: 0,
+            currentGate: 0,
+            gatePassTime: 0
+        };
+
+        // User Inputs (-1 to +1)
+        const inputs = {
+            throttle: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            roll: 0.0
+        };
+
+        // Sliders
+        document.getElementById('sliderMass').addEventListener('input', (e) => {
+            drone.mass = parseFloat(e.target.value) / 1000.0;
+            document.getElementById('valMass').textContent = e.target.value + " g";
+        });
+        document.getElementById('sliderThrust').addEventListener('input', (e) => {
+            const kg = parseFloat(e.target.value);
+            drone.maxThrust = kg * 9.81;
+            const twr = (kg / drone.mass).toFixed(1);
+            document.getElementById('valThrust').textContent = `${kg.toFixed(1)} kg (${twr}:1 TWR)`;
+        });
+        document.getElementById('sliderWind').addEventListener('input', (e) => {
+            drone.wind = (parseFloat(e.target.value) * 1000) / 3600;
+            document.getElementById('valWind').textContent = e.target.value + " km/h";
+        });
+        document.getElementById('sliderDrag').addEventListener('input', (e) => {
+            drone.cd = parseFloat(e.target.value);
+            document.getElementById('valDrag').textContent = drone.cd.toFixed(2);
+        });
+
+        function toggleArm() {
+            drone.armed = !drone.armed;
+            const btn = document.getElementById('armToggleBtn');
+            const badge = document.getElementById('armBadge');
+            const text = document.getElementById('armText');
+            const osdArm = document.getElementById('osdArmState');
+
+            if(drone.armed) {
+                btn.classList.add('armed');
+                btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>DISARM MOTORS</span>';
+                badge.style.color = '#ef4444';
+                badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                badge.style.background = 'rgba(239, 68, 68, 0.15)';
+                text.textContent = "ARMED (PROPS SPINNING)";
+                osdArm.textContent = "ARMED";
+                osdArm.style.color = "#22c55e";
+            } else {
+                btn.classList.remove('armed');
+                btn.innerHTML = '<i class="fa-solid fa-shield-halved"></i> <span>ARM MOTORS</span>';
+                badge.style.color = '#10b981';
+                badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                badge.style.background = 'rgba(16, 185, 129, 0.15)';
+                text.textContent = "DISARMED (MOTORS IDLE)";
+                osdArm.textContent = "DISARMED";
+                osdArm.style.color = "#ef4444";
+            }
+        }
+
+        function resetDrone() {
+            drone.x = 0; drone.y = 1.5; drone.z = 0;
+            drone.vx = 0; drone.vy = 0; drone.vz = 0;
+            drone.roll = 0; drone.pitch = 0; drone.yaw = 0;
+            drone.p = 0; drone.q = 0; drone.r = 0;
+            inputs.throttle = 0;
+            drone.currentGate = 0;
+        }
+
+        function setFlightMode(mode) {
+            drone.mode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            if(mode === 'acro') document.getElementById('modeAcro').classList.add('active');
+            if(mode === 'angle') document.getElementById('modeAngle').classList.add('active');
+            if(mode === 'gps') document.getElementById('modeGps').classList.add('active');
+            document.getElementById('osdModeLabel').textContent = "MODE: " + mode.toUpperCase();
+        }
+
+        function selectCourse(idx) {
+            document.querySelectorAll('.mission-item').forEach((item, i) => {
+                if(i === idx) item.classList.add('active');
+                else item.classList.remove('active');
+            });
+            resetDrone();
+        }
+
+        // Keyboard Controls
+        const keys = {};
+        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        function processKeyboard() {
+            // Throttle: W/S
+            if (keys['w']) inputs.throttle = Math.min(1.0, inputs.throttle + 0.02);
+            if (keys['s']) inputs.throttle = Math.max(0.0, inputs.throttle - 0.02);
+
+            // Yaw: A/D
+            if (keys['a']) inputs.yaw = -0.7;
+            else if (keys['d']) inputs.yaw = 0.7;
+            else inputs.yaw = 0.0;
+
+            // Pitch: ArrowUp / ArrowDown
+            if (keys['arrowup']) inputs.pitch = -0.6;
+            else if (keys['arrowdown']) inputs.pitch = 0.6;
+            else inputs.pitch = 0.0;
+
+            // Roll: ArrowLeft / ArrowRight
+            if (keys['arrowleft']) inputs.roll = -0.6;
+            else if (keys['arrowright']) inputs.roll = 0.6;
+            else inputs.roll = 0.0;
+
+            updateStickUI();
+        }
+
+        // Virtual Touch Stick Interactions
+        function setupGimbal(padId, knobId, onMove, onEnd, isThrottle) {
+            const pad = document.getElementById(padId);
+            const knob = document.getElementById(knobId);
+            let dragging = false;
+
+            function handleMove(e) {
+                if(!dragging) return;
+                const rect = pad.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                let dx = (clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+                let dy = (clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
+
+                dx = Math.max(-1, Math.min(1, dx));
+                dy = Math.max(-1, Math.min(1, dy));
+
+                knob.style.transform = `translate(${dx * 45}px, ${dy * 45}px)`;
+                onMove(dx, dy);
+            }
+
+            pad.addEventListener('mousedown', (e) => { dragging = true; handleMove(e); });
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', () => {
+                if(dragging) {
+                    dragging = false;
+                    if(!isThrottle) {
+                        knob.style.transform = `translate(0px, 0px)`;
+                        onEnd();
+                    }
+                }
+            });
+
+            pad.addEventListener('touchstart', (e) => { dragging = true; handleMove(e); }, { passive: false });
+            window.addEventListener('touchmove', handleMove, { passive: false });
+            window.addEventListener('touchend', () => {
+                if(dragging) {
+                    dragging = false;
+                    if(!isThrottle) {
+                        knob.style.transform = `translate(0px, 0px)`;
+                        onEnd();
+                    }
+                }
+            });
+        }
+
+        setupGimbal('stickLeft', 'knobLeft', (x, y) => {
+            inputs.yaw = x;
+            inputs.throttle = Math.max(0, Math.min(1, (-y + 1) / 2));
+        }, () => { inputs.yaw = 0; }, true);
+
+        setupGimbal('stickRight', 'knobRight', (x, y) => {
+            inputs.roll = x;
+            inputs.pitch = y;
+        }, () => { inputs.roll = 0; inputs.pitch = 0; }, false);
+
+        function updateStickUI() {
+            const knobL = document.getElementById('knobLeft');
+            const knobR = document.getElementById('knobRight');
+
+            const thrY = -(inputs.throttle * 2 - 1) * 45;
+            knobL.style.transform = `translate(${inputs.yaw * 45}px, ${thrY}px)`;
+            knobR.style.transform = `translate(${inputs.roll * 45}px, ${inputs.pitch * 45}px)`;
+        }
+
+        // 3D Racing Gates Arena
+        const gates = [
+            { x: 0, y: 3, z: 20, size: 6 },
+            { x: 15, y: 5, z: 45, size: 6 },
+            { x: 0, y: 4, z: 70, size: 6 },
+            { x: -20, y: 6, z: 45, size: 6 },
+            { x: -10, y: 3, z: 20, size: 6 },
+            { x: 0, y: 2, z: 0, size: 6 }
+        ];
+
+        // 6-DoF Physics Engine Loop
+        const dt = 0.02; // 50 Hz physics step
+        function updatePhysics() {
+            processKeyboard();
+
+            if (!drone.armed) {
+                // Settle on ground
+                if(drone.y > 0.1) {
+                    drone.vy -= 9.81 * dt;
+                    drone.y += drone.vy * dt;
+                    if(drone.y <= 0) { drone.y = 0; drone.vy = 0; }
+                }
+                updateOSD();
+                return;
+            }
+
+            // Total Thrust Force from Throttle
+            const currentThrust = inputs.throttle * drone.maxThrust;
+
+            // Attitude Control Laws
+            if (drone.mode === 'acro') {
+                // Rate PID: Angular velocity proportional to stick
+                const maxRate = 7.0; // rad/s (~400 deg/s)
+                drone.p = inputs.roll * maxRate;
+                drone.q = inputs.pitch * maxRate;
+                drone.r = inputs.yaw * (maxRate * 0.8);
+                drone.roll += drone.p * dt;
+                drone.pitch += drone.q * dt;
+                drone.yaw += drone.r * dt;
+            } else if (drone.mode === 'angle') {
+                // Self-leveling: Attitude proportional to stick
+                const targetRoll = inputs.roll * 0.6; // Max 35 deg
+                const targetPitch = inputs.pitch * 0.6;
+                drone.roll += (targetRoll - drone.roll) * 8.0 * dt;
+                drone.pitch += (targetPitch - drone.pitch) * 8.0 * dt;
+                drone.yaw += inputs.yaw * 3.0 * dt;
+            } else if (drone.mode === 'gps') {
+                // GPS Position & Altitude Hold
+                drone.roll += (0 - drone.roll) * 5.0 * dt;
+                drone.pitch += (0 - drone.pitch) * 5.0 * dt;
+                drone.yaw += inputs.yaw * 2.0 * dt;
+                // Auto hover throttle balance
+                const hoverThr = (drone.mass * 9.81) / drone.maxThrust;
+                inputs.throttle += (hoverThr - inputs.throttle) * 0.1;
+            }
+
+            // Transform body thrust into inertial world frame
+            // F_world = R(yaw) * R(pitch) * R(roll) * [0, Thrust, 0]
+            const cr = Math.cos(drone.roll), sr = Math.sin(drone.roll);
+            const cp = Math.cos(drone.pitch), sp = Math.sin(drone.pitch);
+            const cy = Math.cos(drone.yaw), sy = Math.sin(drone.yaw);
+
+            const fx = currentThrust * (sy * sr + cy * sp * cr);
+            const fy = currentThrust * (cp * cr) - (drone.mass * 9.81);
+            const fz = currentThrust * (-cy * sr + sy * sp * cr);
+
+            // Aerodynamic Drag + Dryden Wind
+            const vRelX = drone.vx - (Math.sin(drone.time * 0.5) * drone.wind);
+            const vRelZ = drone.vz - drone.wind;
+            const dragForceX = -0.5 * 1.225 * drone.cd * 0.05 * vRelX * Math.abs(vRelX);
+            const dragForceY = -0.5 * 1.225 * drone.cd * 0.05 * drone.vy * Math.abs(drone.vy);
+            const dragForceZ = -0.5 * 1.225 * drone.cd * 0.05 * vRelZ * Math.abs(vRelZ);
+
+            // Accelerations
+            const ax = (fx + dragForceX) / drone.mass;
+            const ay = (fy + dragForceY) / drone.mass;
+            const az = (fz + dragForceZ) / drone.mass;
+
+            // Euler integration
+            drone.vx += ax * dt;
+            drone.vy += ay * dt;
+            drone.vz += az * dt;
+
+            drone.x += drone.vx * dt;
+            drone.y += drone.vy * dt;
+            drone.z += drone.vz * dt;
+
+            // Ground Collision
+            if (drone.y <= 0) {
+                drone.y = 0;
+                drone.vy = 0;
+                drone.vx *= 0.8;
+                drone.vz *= 0.8;
+            }
+
+            drone.time += dt;
+
+            // Track Gate Progress
+            const currentG = gates[drone.currentGate];
+            if(currentG) {
+                const distGate = Math.hypot(drone.x - currentG.x, drone.y - currentG.y, drone.z - currentG.z);
+                if(distGate < currentG.size * 0.6) {
+                    drone.currentGate = (drone.currentGate + 1) % gates.length;
+                }
+            }
+
+            updateOSD();
+        }
+        setInterval(updatePhysics, 20);
+
+        function updateOSD() {
+            const spdKmh = Math.round(Math.hypot(drone.vx, drone.vy, drone.vz) * 3.6);
+            if(spdKmh > drone.maxSpeed) drone.maxSpeed = spdKmh;
+
+            document.getElementById('osdSpeed').textContent = spdKmh;
+            document.getElementById('osdAlt').textContent = drone.y.toFixed(1);
+            document.getElementById('osdVario').textContent = (drone.vy >= 0 ? "+" : "") + drone.vy.toFixed(1);
+            document.getElementById('osdThr').textContent = Math.round(inputs.throttle * 100) + "%";
+            document.getElementById('osdPitch').textContent = Math.round((drone.pitch * 180) / Math.PI) + "°";
+            document.getElementById('osdRoll').textContent = Math.round((drone.roll * 180) / Math.PI) + "°";
+            document.getElementById('osdGateLap').textContent = `GATE: ${drone.currentGate + 1}/6 (COURSE ACTIVE)`;
+
+            // Right sidebar telemetry
+            const gVal = (1.0 + Math.abs(drone.vy * 0.15)).toFixed(2);
+            document.getElementById('valGForce').textContent = gVal + " G";
+            document.getElementById('valMaxVel').textContent = drone.maxSpeed + " km/h";
+
+            const elapsed = Math.floor((Date.now() - drone.startTime) / 1000);
+            const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            document.getElementById('valFlightTime').textContent = `${m}:${s}`;
+        }
+
+        // 3D Canvas Rendering
+        const canvas = document.getElementById('flightCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 50);
+
+        function renderScene() {
+            const w = canvas.width;
+            const h = canvas.height;
+            if(!w || !h) return;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.save();
+
+            const fov = 400 * (window.devicePixelRatio || 1);
+            const cx = w / 2;
+            const cy = h / 2;
+
+            // Camera transformation: FPV onboard or Chase Cam
+            // Project 3D world points to 2D screen
+            function project(wx, wy, wz) {
+                // Translate relative to drone
+                const dx = wx - drone.x;
+                const dy = wy - drone.y;
+                const dz = wz - drone.z;
+
+                // Rotate by drone attitude (camera view)
+                const cy = Math.cos(-drone.yaw), sy = Math.sin(-drone.yaw);
+                const cp = Math.cos(-drone.pitch), sp = Math.sin(-drone.pitch);
+                const cr = Math.cos(-drone.roll), sr = Math.sin(-drone.roll);
+
+                // Yaw
+                let x1 = dx * cy - dz * sy;
+                let y1 = dy;
+                let z1 = dx * sy + dz * cy;
+
+                // Pitch
+                let x2 = x1;
+                let y2 = y1 * cp - z1 * sp;
+                let z2 = y1 * sp + z1 * cp;
+
+                // Roll
+                let x3 = x2 * cr - y2 * sr;
+                let y3 = x2 * sr + y2 * cr;
+                let z3 = z2;
+
+                if (z3 <= 0.2) return null; // Behind camera
+
+                return {
+                    x: cx + (x3 / z3) * fov,
+                    y: cy - (y3 / z3) * fov,
+                    z: z3
+                };
+            }
+
+            // Draw Ground Grid
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            const gridSize = 120;
+            const step = 8;
+
+            for(let gx = -gridSize; gx <= gridSize; gx += step) {
+                const p1 = project(gx, 0, -gridSize);
+                const p2 = project(gx, 0, gridSize);
+                if(p1 && p2) {
+                    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+                }
+            }
+            for(let gz = -gridSize; gz <= gridSize; gz += step) {
+                const p1 = project(-gridSize, 0, gz);
+                const p2 = project(gridSize, 0, gz);
+                if(p1 && p2) {
+                    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+                }
+            }
+
+            // Draw Neon Racing Gates
+            for(let i = 0; i < gates.length; i++) {
+                const g = gates[i];
+                const isTarget = (i === drone.currentGate);
+                const s = g.size;
+
+                // 4 corners of gate square
+                const c1 = project(g.x - s/2, g.y - s/2, g.z);
+                const c2 = project(g.x + s/2, g.y - s/2, g.z);
+                const c3 = project(g.x + s/2, g.y + s/2, g.z);
+                const c4 = project(g.x - s/2, g.y + s/2, g.z);
+
+                if(c1 && c2 && c3 && c4) {
+                    ctx.beginPath();
+                    ctx.moveTo(c1.x, c1.y);
+                    ctx.lineTo(c2.x, c2.y);
+                    ctx.lineTo(c3.x, c3.y);
+                    ctx.lineTo(c4.x, c4.y);
+                    ctx.closePath();
+
+                    ctx.strokeStyle = isTarget ? '#10b981' : '#38bdf8';
+                    ctx.lineWidth = isTarget ? 4 : 2;
+                    ctx.shadowColor = isTarget ? 'rgba(16, 185, 129, 0.8)' : 'rgba(56, 189, 248, 0.4)';
+                    ctx.shadowBlur = isTarget ? 15 : 6;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    // Gate number label
+                    ctx.fillStyle = isTarget ? '#10b981' : '#38bdf8';
+                    ctx.font = `bold ${12 * window.devicePixelRatio}px 'JetBrains Mono'`;
+                    ctx.fillText(`GATE ${i+1}`, c4.x, c4.y - 8);
+                }
+            }
+
+            ctx.restore();
+            requestAnimationFrame(renderScene);
+        }
+
+        requestAnimationFrame(renderScene);
+    </script>
+</body>
+</html>
